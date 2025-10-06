@@ -1,9 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 import os
+import re
 
 app = Flask(__name__)
 CORS(app)
@@ -41,14 +40,14 @@ documents = [
 - 남성60대이상고객비중: < 3%
 - 여성20대이하고객비중: > 15%
 - 여성30대고객비중: > 15%""",
-        "metadata": "폐업 위기 임계치"
+        "keywords": ["위험", "경보", "임계치", "주의", "지표", "매출", "고객", "비중"]
     },
     {
         "content": """복합 위험 점수 기준:
 - 1~2개 충족: 관심 단계
 - 3~5개 충족: 주의 단계
 - 6개 이상 충족: 경보 단계""",
-        "metadata": "위험 등급 기준"
+        "keywords": ["점수", "기준", "단계", "충족"]
     },
     {
         "content": """업종별 평균 폐업확률:
@@ -72,7 +71,7 @@ documents = [
 18. 백반/가정식: 1.65% (816개)
 19. 한식-육류/고기: 1.47% (1534개)
 20. 피자: 0.76% (1323개)""",
-        "metadata": "업종별 폐업확률"
+        "keywords": ["업종", "폐업확률", "와인바", "중식", "카페", "커피", "치킨", "피자", "한식", "양식"]
     },
     {
         "content": """지역별 실제 폐업 가맹점 수 (서울 성동구):
@@ -86,7 +85,7 @@ documents = [
 8. 서울숲길: 24개
 9. 아차산로길: 24개
 10. 사근동길: 24개""",
-        "metadata": "지역별 폐업 가맹점 수"
+        "keywords": ["지역", "가맹점", "수", "서울", "성동구", "왕십리", "행당로"]
     },
     {
         "content": """지역별 평균 폐업확률 (서울 성동구):
@@ -100,25 +99,34 @@ documents = [
 8. 마조로길: 18.41% (27개)
 9. 금호산길: 17.11% (25개)
 10. 무학봉길: 16.98% (4개)""",
-        "metadata": "지역별 폐업확률"
+        "keywords": ["지역", "폐업확률", "서울", "성동구", "사근동길", "서울숲길"]
     }
 ]
 
-# 문서 임베딩 캐시
-embeddings_cache = None
-
-def get_embeddings():
-    global embeddings_cache
-    if embeddings_cache is None:
-        embeddings_cache = []
-        for doc in documents:
-            result = genai.embed_content(
-                model="models/embedding-001",
-                content=doc["content"],
-                task_type="retrieval_document"
-            )
-            embeddings_cache.append(result['embedding'])
-    return embeddings_cache
+def search_documents(query):
+    """키워드 기반 문서 검색"""
+    query_lower = query.lower()
+    scores = []
+    
+    for doc in documents:
+        score = 0
+        # 키워드 매칭
+        for keyword in doc["keywords"]:
+            if keyword in query_lower:
+                score += 2
+        
+        # 내용에서 직접 검색
+        content_lower = doc["content"].lower()
+        query_words = query_lower.split()
+        for word in query_words:
+            if len(word) > 1 and word in content_lower:
+                score += 1
+        
+        scores.append((doc, score))
+    
+    # 점수 기준 정렬 후 상위 3개 선택
+    scores.sort(key=lambda x: x[1], reverse=True)
+    return [doc for doc, score in scores[:3] if score > 0]
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -126,23 +134,13 @@ def chat():
         data = request.json
         query = data.get('message', '')
         
-        # 쿼리 임베딩
-        query_embedding = genai.embed_content(
-            model="models/embedding-001",
-            content=query,
-            task_type="retrieval_query"
-        )['embedding']
-        
         # 관련 문서 검색
-        doc_embeddings = get_embeddings()
-        similarities = cosine_similarity(
-            [query_embedding],
-            doc_embeddings
-        )[0]
+        relevant_docs = search_documents(query)
         
-        # 상위 3개 문서 선택
-        top_indices = np.argsort(similarities)[-3:][::-1]
-        context = "\n\n".join([documents[i]["content"] for i in top_indices])
+        if not relevant_docs:
+            relevant_docs = documents[:3]
+        
+        context = "\n\n".join([doc["content"] for doc in relevant_docs])
         
         # Gemini로 답변 생성
         model = genai.GenerativeModel('gemini-pro')
