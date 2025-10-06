@@ -143,7 +143,7 @@ def chat():
         context = "\n\n".join([doc["content"] for doc in relevant_docs])
         
         # Gemini로 답변 생성
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = f"""다음 문서를 참고하여 질문에 답변해주세요.
 
 문서:
