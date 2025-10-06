@@ -1,21 +1,18 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from google import genai
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.schema import Document
 import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Gemini API 클라이언트
+# Gemini API 클라이언트 설정
 client = genai.Client(api_key=os.environ.get('GEMINI_API_KEY'))
 
 # 문서 데이터
-raw_documents = [
-    """폐업 위기 경보 시스템 임계치 설정
+documents = [
+    {
+        "content": """폐업 위기 경보 시스템 임계치 설정
 
 위험 신호 (주의 단계):
 - 배달매출금액비율: > 12%
@@ -42,13 +39,17 @@ raw_documents = [
 - 남성60대이상고객비중: < 3%
 - 여성20대이하고객비중: > 15%
 - 여성30대고객비중: > 15%""",
-    
-    """복합 위험 점수 기준:
+        "keywords": ["위험", "경보", "임계치", "주의", "지표", "매출", "고객", "비중"]
+    },
+    {
+        "content": """복합 위험 점수 기준:
 - 1~2개 충족: 관심 단계
 - 3~5개 충족: 주의 단계
 - 6개 이상 충족: 경보 단계""",
-    
-    """업종별 평균 폐업확률:
+        "keywords": ["점수", "기준", "단계", "충족"]
+    },
+    {
+        "content": """업종별 평균 폐업확률:
 1. 와인바: 66.42% (6개 가맹점)
 2. 중식-훠궈/마라탕: 22.56% (37개)
 3. 식료품: 12.03% (84개)
@@ -69,8 +70,10 @@ raw_documents = [
 18. 백반/가정식: 1.65% (816개)
 19. 한식-육류/고기: 1.47% (1534개)
 20. 피자: 0.76% (1323개)""",
-    
-    """지역별 실제 폐업 가맹점 수 (서울 성동구):
+        "keywords": ["업종", "폐업확률", "와인바", "중식", "카페", "커피", "치킨", "피자", "한식", "양식"]
+    },
+    {
+        "content": """지역별 실제 폐업 가맹점 수 (서울 성동구):
 1. 왕십리로길: 69개
 2. 행당로: 61개
 3. 용답길: 39개
@@ -81,8 +84,10 @@ raw_documents = [
 8. 서울숲길: 24개
 9. 아차산로길: 24개
 10. 사근동길: 24개""",
-    
-    """지역별 평균 폐업확률 (서울 성동구):
+        "keywords": ["지역", "가맹점", "수", "서울", "성동구", "왕십리", "행당로"]
+    },
+    {
+        "content": """지역별 평균 폐업확률 (서울 성동구):
 1. 사근동길: 26.19% (24개)
 2. 서울숲길: 24.49% (24개)
 3. 고산자로길: 22.82% (22개)
@@ -92,27 +97,35 @@ raw_documents = [
 7. 왕십리로길: 19.67% (69개)
 8. 마조로길: 18.41% (27개)
 9. 금호산길: 17.11% (25개)
-10. 무학봉길: 16.98% (4개)"""
+10. 무학봉길: 16.98% (4개)""",
+        "keywords": ["지역", "폐업확률", "서울", "성동구", "사근동길", "서울숲길"]
+    }
 ]
 
-# 벡터 스토어 초기화 (앱 시작 시 한 번만)
-vectorstore = None
-
-def initialize_vectorstore():
-    """FAISS 벡터 스토어 초기화"""
-    global vectorstore
+def search_documents(query):
+    """키워드 기반 문서 검색"""
+    query_lower = query.lower()
+    scores = []
     
-    # LangChain Document 객체로 변환
-    documents = [Document(page_content=text) for text in raw_documents]
+    for doc in documents:
+        score = 0
+        # 키워드 매칭
+        for keyword in doc["keywords"]:
+            if keyword in query_lower:
+                score += 2
+        
+        # 내용에서 직접 검색
+        content_lower = doc["content"].lower()
+        query_words = query_lower.split()
+        for word in query_words:
+            if len(word) > 1 and word in content_lower:
+                score += 1
+        
+        scores.append((doc, score))
     
-    # 로컬 임베딩 모델 (HuggingFace - 무료, API 호출 없음)
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-    )
-    
-    # FAISS 벡터 스토어 생성
-    vectorstore = FAISS.from_documents(documents, embeddings)
-    print("✅ 벡터 스토어 초기화 완료")
+    # 점수 기준 정렬 후 상위 3개 선택
+    scores.sort(key=lambda x: x[1], reverse=True)
+    return [doc for doc, score in scores[:3] if score > 0]
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -120,9 +133,13 @@ def chat():
         data = request.json
         query = data.get('message', '')
         
-        # 벡터 스토어에서 관련 문서 검색 (상위 3개)
-        docs = vectorstore.similarity_search(query, k=3)
-        context = "\n\n".join([doc.page_content for doc in docs])
+        # 관련 문서 검색
+        relevant_docs = search_documents(query)
+        
+        if not relevant_docs:
+            relevant_docs = documents[:3]
+        
+        context = "\n\n".join([doc["content"] for doc in relevant_docs])
         
         # Gemini로 답변 생성
         prompt = f"""다음 문서를 참고하여 질문에 답변해주세요.
@@ -152,9 +169,6 @@ def chat():
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
-
-# 앱 시작 시 벡터 스토어 초기화
-initialize_vectorstore()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
