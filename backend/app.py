@@ -20,7 +20,6 @@ try:
     print("✓ 모델 로드 성공!")
     print(f"  - 모델: {model_package['model_info']['name']}")
     print(f"  - 버전: {model_package['model_info']['version']}")
-    print(f"  - 정확도: {model_package['model_info']['metrics']['accuracy']}")
 except Exception as e:
     print(f"✗ 모델 로드 실패: {e}")
 
@@ -31,7 +30,6 @@ def load_documents():
         with open('documents.txt', 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # 문서 파싱
         doc_blocks = content.split('===DOCUMENT_START===')
         for block in doc_blocks:
             if '===DOCUMENT_END===' in block:
@@ -62,7 +60,6 @@ def load_documents():
         print(f"✗ 문서 로드 실패: {e}")
         return []
 
-# 문서 로드
 documents = load_documents()
 
 def search_documents(query):
@@ -72,12 +69,10 @@ def search_documents(query):
     
     for doc in documents:
         score = 0
-        # 키워드 매칭
         for keyword in doc["keywords"]:
             if keyword in query_lower:
                 score += 2
         
-        # 내용에서 직접 검색
         content_lower = doc["content"].lower()
         query_words = query_lower.split()
         for word in query_words:
@@ -86,7 +81,6 @@ def search_documents(query):
         
         scores.append((doc, score))
     
-    # 점수 기준 정렬 후 상위 3개 선택
     scores.sort(key=lambda x: x[1], reverse=True)
     return [doc for doc, score in scores[:3] if score > 0]
 
@@ -96,7 +90,6 @@ def chat():
         data = request.json
         query = data.get('message', '')
         
-        # 관련 문서 검색
         relevant_docs = search_documents(query)
         
         if not relevant_docs:
@@ -104,7 +97,6 @@ def chat():
         
         context = "\n\n".join([doc["content"] for doc in relevant_docs])
         
-        # Gemini로 답변 생성
         prompt = f"""다음 문서를 참고하여 질문에 답변해주세요.
 
 문서:
@@ -143,10 +135,8 @@ def predict():
         if not all([region, industry, district]):
             return jsonify({'error': '모든 필드를 입력해주세요'}), 400
         
-        # label_encoders에서 인코더 가져오기
         encoders = model_package['label_encoders']
         
-        # 인코딩
         try:
             region_encoded = encoders['가맹점지역_encoded'].transform([region])[0]
             industry_encoded = encoders['업종_encoded'].transform([industry])[0]
@@ -154,7 +144,6 @@ def predict():
         except:
             return jsonify({'error': '입력값이 학습 데이터에 없습니다'}), 400
         
-        # 예측
         X = np.array([[region_encoded, industry_encoded, district_encoded]])
         model = model_package['model']
         probability = model.predict_proba(X)[0][1]
@@ -189,8 +178,7 @@ def health():
     return jsonify({
         'status': 'ok',
         'model_loaded': model_package is not None,
-        'documents_loaded': len(documents) > 0,
-        'model_info': model_package['model_info'] if model_package else None
+        'documents_loaded': len(documents) > 0
     })
 
 if __name__ == '__main__':
