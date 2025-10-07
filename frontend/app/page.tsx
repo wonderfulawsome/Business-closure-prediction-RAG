@@ -19,20 +19,28 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   
-  // 예측 모델 상태
   const [options, setOptions] = useState<Options | null>(null);
+  const [optionsError, setOptionsError] = useState<string>('');
   const [region, setRegion] = useState('');
   const [industry, setIndustry] = useState('');
   const [district, setDistrict] = useState('');
   const [prediction, setPrediction] = useState<any>(null);
   const [predicting, setPredicting] = useState(false);
 
-  // 옵션 로드
   useEffect(() => {
     fetch('https://business-closure-prediction-rag.onrender.com/options')
       .then(res => res.json())
-      .then(data => setOptions(data))
-      .catch(err => console.error('옵션 로드 실패:', err));
+      .then(data => {
+        if (data.error) {
+          setOptionsError(data.error);
+        } else {
+          setOptions(data);
+        }
+      })
+      .catch(err => {
+        console.error('옵션 로드 실패:', err);
+        setOptionsError('옵션을 불러올 수 없습니다');
+      });
   }, []);
 
   const sendMessage = async () => {
@@ -98,12 +106,13 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-[#B2C7D9]">
-      {/* 사이드바 */}
       <div className={`${showSidebar ? 'w-80' : 'w-0'} transition-all duration-300 bg-white overflow-hidden`}>
         <div className="p-4 h-full overflow-y-auto">
           <h2 className="text-xl font-bold mb-4 text-gray-800">폐업 확률 예측</h2>
           
-          {options ? (
+          {optionsError ? (
+            <div className="text-red-600 text-sm">{optionsError}</div>
+          ) : options ? (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">가맹점 지역</label>
@@ -113,7 +122,7 @@ export default function Home() {
                   className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
                 >
                   <option value="">선택하세요</option>
-                  {options.regions.map(r => (
+                  {options.regions?.map(r => (
                     <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
@@ -127,7 +136,7 @@ export default function Home() {
                   className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
                 >
                   <option value="">선택하세요</option>
-                  {options.industries.map(i => (
+                  {options.industries?.map(i => (
                     <option key={i} value={i}>{i}</option>
                   ))}
                 </select>
@@ -141,7 +150,7 @@ export default function Home() {
                   className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
                 >
                   <option value="">선택하세요</option>
-                  {options.districts.map(d => (
+                  {options.districts?.map(d => (
                     <option key={d} value={d}>{d}</option>
                   ))}
                 </select>
@@ -173,9 +182,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 메인 채팅 영역 */}
       <div className="flex-1 flex flex-col">
-        {/* 헤더 */}
         <header className="bg-[#A8C5DD] px-4 py-3 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#FFE082] rounded-full flex items-center justify-center text-xl">
@@ -194,7 +201,6 @@ export default function Home() {
           </button>
         </header>
 
-        {/* 메시지 영역 */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.map((msg, idx) => (
             <div
@@ -229,7 +235,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* 입력 영역 */}
         <div className="bg-white px-4 py-3 shadow-lg border-t border-gray-200">
           <div className="flex items-center gap-2">
             <button className="text-gray-500 text-xl flex-shrink-0">+</button>
