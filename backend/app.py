@@ -11,18 +11,18 @@ CORS(app)
 # Gemini API 클라이언트 설정
 client = genai.Client(api_key=os.environ.get('GEMINI_API_KEY'))
 
-# 모델 및 인코더 로드
-model = None
-encoders = None
+# 모델 패키지 로드
+model_package = None
 
 try:
     with open('franchise_model.pkl', 'rb') as f:
-        model = pickle.load(f)
-    with open('encoders.pkl', 'rb') as f:
-        encoders = pickle.load(f)
-    print("모델 및 인코더 로드 성공!")
+        model_package = pickle.load(f)
+    print("✓ 모델 로드 성공!")
+    print(f"  - 모델: {model_package['model_info']['name']}")
+    print(f"  - 버전: {model_package['model_info']['version']}")
+    print(f"  - 정확도: {model_package['model_info']['metrics']['accuracy']}")
 except Exception as e:
-    print(f"모델 로드 실패: {e}")
+    print(f"✗ 모델 로드 실패: {e}")
 
 # 문서 로드 함수
 def load_documents():
@@ -56,10 +56,10 @@ def load_documents():
                         'keywords': keywords
                     })
         
-        print(f"문서 {len(documents)}개 로드 완료!")
+        print(f"✓ 문서 {len(documents)}개 로드 완료!")
         return documents
     except Exception as e:
-        print(f"문서 로드 실패: {e}")
+        print(f"✗ 문서 로드 실패: {e}")
         return []
 
 # 문서 로드
@@ -132,31 +132,35 @@ def chat():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        if model is None or encoders is None:
+        if model_package is None:
             return jsonify({'error': '모델이 로드되지 않았습니다'}), 500
         
         data = request.json
-        region = data.get('region')  # 가맹점지역
-        industry = data.get('industry')  # 업종
-        district = data.get('district')  # 상권
+        region = data.get('region')
+        industry = data.get('industry')
+        district = data.get('district')
         
         if not all([region, industry, district]):
             return jsonify({'error': '모든 필드를 입력해주세요'}), 400
         
+        # label_encoders에서 인코더 가져오기
+        encoders = model_package['label_encoders']
+        
         # 인코딩
         try:
-            region_encoded = encoders['region'].transform([region])[0]
-            industry_encoded = encoders['industry'].transform([industry])[0]
-            district_encoded = encoders['district'].transform([district])[0]
+            region_encoded = encoders['가맹점지역_encoded'].transform([region])[0]
+            industry_encoded = encoders['업종_encoded'].transform([industry])[0]
+            district_encoded = encoders['상권_encoded'].transform([district])[0]
         except:
             return jsonify({'error': '입력값이 학습 데이터에 없습니다'}), 400
         
         # 예측
         X = np.array([[region_encoded, industry_encoded, district_encoded]])
-        probability = model.predict_proba(X)[0][1]  # 폐업 확률
+        model = model_package['model']
+        probability = model.predict_proba(X)[0][1]
         
         return jsonify({
-            'closure_probability': float(probability) * 100,  # 퍼센트로 변환
+            'closure_probability': float(probability) * 100,
             'risk_level': '높음' if probability > 0.3 else '중간' if probability > 0.1 else '낮음'
         })
         
@@ -167,13 +171,15 @@ def predict():
 def get_options():
     """입력 옵션 반환"""
     try:
-        if encoders is None:
-            return jsonify({'error': '인코더가 로드되지 않았습니다'}), 500
+        if model_package is None:
+            return jsonify({'error': '모델이 로드되지 않았습니다'}), 500
+        
+        encoders = model_package['label_encoders']
         
         return jsonify({
-            'regions': encoders['region'].classes_.tolist(),
-            'industries': encoders['industry'].classes_.tolist(),
-            'districts': encoders['district'].classes_.tolist()
+            'regions': encoders['가맹점지역_encoded'].classes_.tolist(),
+            'industries': encoders['업종_encoded'].classes_.tolist(),
+            'districts': encoders['상권_encoded'].classes_.tolist()
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -182,8 +188,9 @@ def get_options():
 def health():
     return jsonify({
         'status': 'ok',
-        'model_loaded': model is not None,
-        'documents_loaded': len(documents) > 0
+        'model_loaded': model_package is not None,
+        'documents_loaded': len(documents) > 0,
+        'model_info': model_package['model_info'] if model_package else None
     })
 
 if __name__ == '__main__':
