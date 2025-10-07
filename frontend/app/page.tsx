@@ -45,54 +45,77 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      <header className="bg-blue-600 text-white p-4 shadow-md">
-        <h1 className="text-2xl font-bold">폐업 위기 예측 챗봇</h1>
+    <div className="flex flex-col h-screen bg-[#B2C7D9]">
+      {/* 헤더 */}
+      <header className="bg-[#A8C5DD] px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-[#FFE082] rounded-full flex items-center justify-center text-xl">
+            🤖
+          </div>
+          <div>
+            <h1 className="text-gray-800 font-semibold">폐업 위기 예측 봇</h1>
+            <p className="text-xs text-gray-600">AI 상담사</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button className="text-gray-700 text-xl">☰</button>
+        </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* 메시지 영역 */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((msg, idx) => (
           <div
             key={idx}
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
+            {msg.role === 'assistant' && (
+              <div className="w-8 h-8 bg-[#FFE082] rounded-full flex items-center justify-center text-sm mr-2 flex-shrink-0">
+                🤖
+              </div>
+            )}
             <div
-              className={`max-w-[70%] p-3 rounded-lg ${
+              className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-sm ${
                 msg.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-800 shadow'
+                  ? 'bg-[#FEE500] text-gray-800'
+                  : 'bg-white text-gray-800'
               }`}
             >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
             </div>
           </div>
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-white p-3 rounded-lg shadow">
-              <p className="text-gray-500">답변 생성 중...</p>
+            <div className="w-8 h-8 bg-[#FFE082] rounded-full flex items-center justify-center text-sm mr-2">
+              🤖
+            </div>
+            <div className="bg-white px-4 py-2 rounded-2xl shadow-sm">
+              <p className="text-gray-500 text-sm">답변 작성 중...</p>
             </div>
           </div>
         )}
       </div>
 
-      <div className="bg-white p-4 shadow-lg">
-        <div className="flex gap-2">
+      {/* 입력 영역 */}
+      <div className="bg-white px-4 py-3 shadow-lg border-t border-gray-200">
+        <div className="flex items-center gap-2">
+          <button className="text-gray-500 text-xl flex-shrink-0">+</button>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="질문을 입력하세요..."
-            className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+            onKeyPress={(e) => e.key === 'Enter' && !loading && sendMessage()}
+            placeholder="메시지를 입력하세요"
+            className="flex-1 px-3 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-[#FEE500] text-sm"
             disabled={loading}
           />
           <button
             onClick={sendMessage}
             disabled={loading || !input.trim()}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-8 h-8 bg-[#FEE500] rounded-full flex items-center justify-center disabled:bg-gray-300 disabled:cursor-not-allowed flex-shrink-0"
           >
-            전송
+            <span className="text-gray-800 text-sm">↑</span>
           </button>
         </div>
       </div>
