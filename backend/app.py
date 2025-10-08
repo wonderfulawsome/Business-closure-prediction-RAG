@@ -3,67 +3,56 @@ from flask_cors import CORS
 from google import genai
 import os
 import pickle
-import numpy as np
 
 app = Flask(__name__)
 CORS(app)
 
-# Gemini API 클라이언트 설정
 client = genai.Client(api_key=os.environ.get('GEMINI_API_KEY'))
 
-# 모델 패키지 로드
 model_package = None
 
 try:
     with open('franchise_model.pkl', 'rb') as f:
         model_package = pickle.load(f)
     print("✓ 모델 로드 성공!")
-    print(f"  - 모델: {model_package['model_info']['name']}")
-    print(f"  - 버전: {model_package['model_info']['version']}")
 except Exception as e:
     print(f"✗ 모델 로드 실패: {e}")
+    print("⚠ 예측 기능 없이 챗봇만 작동합니다")
 
-# 문서 로드 함수
-def load_documents():
-    documents = []
-    try:
-        with open('documents.txt', 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        doc_blocks = content.split('===DOCUMENT_START===')
-        for block in doc_blocks:
-            if '===DOCUMENT_END===' in block:
-                block = block.split('===DOCUMENT_END===')[0]
-                lines = block.strip().split('\n')
-                
-                keywords = []
-                content_lines = []
-                is_content = False
-                
-                for line in lines:
-                    if line.startswith('KEYWORDS:'):
-                        keywords = line.replace('KEYWORDS:', '').strip().split(',')
-                    elif line.startswith('CONTENT:'):
-                        is_content = True
-                    elif is_content and line.strip():
-                        content_lines.append(line)
-                
-                if content_lines:
-                    documents.append({
-                        'content': '\n'.join(content_lines),
-                        'keywords': keywords
-                    })
-        
-        print(f"✓ 문서 {len(documents)}개 로드 완료!")
-        return documents
-    except Exception as e:
-        print(f"✗ 문서 로드 실패: {e}")
-        return []
-
-documents = load_documents()
+documents = []
+try:
+    with open('documents.txt', 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    doc_blocks = content.split('===DOCUMENT_START===')
+    for block in doc_blocks:
+        if '===DOCUMENT_END===' in block:
+            block = block.split('===DOCUMENT_END===')[0]
+            lines = block.strip().split('\n')
+            
+            keywords = []
+            content_lines = []
+            is_content = False
+            
+            for line in lines:
+                if line.startswith('KEYWORDS:'):
+                    keywords = line.replace('KEYWORDS:', '').strip().split(',')
+                elif line.startsWith('CONTENT:'):
+                    is_content = True
+                elif is_content and line.strip():
+                    content_lines.append(line)
+            
+            if content_lines:
+                documents.append({
+                    'content': '\n'.join(content_lines),
+                    'keywords': keywords
+                })
+    
+    print(f"✓ 문서 {len(documents)}개 로드 완료!")
+except Exception as e:
+    print(f"✗ 문서 로드 실패: {e}")
 
 def search_documents(query):
-    """키워드 기반 문서 검색"""
     query_lower = query.lower()
     scores = []
     
@@ -123,10 +112,10 @@ def chat():
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    if model_package is None:
+        return jsonify({'error': '예측 모델을 사용할 수 없습니다. 모델 파일(franchise_model.pkl)이 필요합니다.'}), 400
+    
     try:
-        if model_package is None:
-            return jsonify({'error': '모델이 로드되지 않았습니다'}), 500
-        
         data = request.json
         region = data.get('region')
         industry = data.get('industry')
@@ -138,6 +127,7 @@ def predict():
         encoders = model_package['label_encoders']
         
         try:
+            import numpy as np
             region_encoded = encoders['가맹점지역_encoded'].transform([region])[0]
             industry_encoded = encoders['업종_encoded'].transform([industry])[0]
             district_encoded = encoders['상권_encoded'].transform([district])[0]
@@ -158,20 +148,45 @@ def predict():
 
 @app.route('/options', methods=['GET'])
 def get_options():
-    """입력 옵션 반환"""
-    try:
-        if model_package is None:
-            return jsonify({'error': '모델이 로드되지 않았습니다'}), 500
-        
-        encoders = model_package['label_encoders']
-        
+    if model_package is None:
         return jsonify({
-            'regions': encoders['가맹점지역_encoded'].classes_.tolist(),
-            'industries': encoders['업종_encoded'].classes_.tolist(),
-            'districts': encoders['상권_encoded'].classes_.tolist()
+            'error': '예측 기능을 사용할 수 없습니다',
+            'regions': [],
+            'industries': [],
+            'districts': []
         })
+    
+    try:
+        print("=== 모델 패키지 구조 ===")
+        print("Type:", type(model_package))
+        print("Keys:", list(model_package.keys()) if hasattr(model_package, 'keys') else "Not a dict")
+        
+        # label_encoders가 있는지 확인
+        if 'label_encoders' in model_package:
+            encoders = model_package['label_encoders']
+            print("Encoders type:", type(encoders))
+            print("Encoder keys:", list(encoders.keys()))
+            
+            return jsonify({
+                'regions': list(encoders['가맹점지역_encoded'].classes_),
+                'industries': list(encoders['업종_encoded'].classes_),
+                'districts': list(encoders['상권_encoded'].classes_)
+            })
+        else:
+            # label_encoders가 없으면 전체 키 구조 반환
+            return jsonify({
+                'error': 'label_encoders 키가 없음',
+                'available_keys': list(model_package.keys())
+            }), 500
+            
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print("=== 에러 발생 ===")
+        print(traceback.format_exc())
+        return jsonify({
+            'error': str(e),
+            'type': type(e).__name__
+        }), 500
 
 @app.route('/health', methods=['GET'])
 def health():
