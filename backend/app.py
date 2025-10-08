@@ -3,6 +3,7 @@ from flask_cors import CORS
 from google import genai
 import os
 import pickle
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
@@ -15,9 +16,16 @@ try:
     with open('franchise_model.pkl', 'rb') as f:
         model_package = pickle.load(f)
     print("✓ 모델 로드 성공!")
+    if isinstance(model_package, dict):
+        print("  - 키:", list(model_package.keys()))
+        if 'model_info' in model_package:
+            info = model_package['model_info']
+            print(f"  - 모델명: {info.get('name', 'Unknown')}")
+            print(f"  - 버전: {info.get('version', 'Unknown')}")
 except Exception as e:
     print(f"✗ 모델 로드 실패: {e}")
-    print("⚠ 예측 기능 없이 챗봇만 작동합니다")
+    import traceback
+    print(traceback.format_exc())
 
 documents = []
 try:
@@ -37,7 +45,8 @@ try:
             for line in lines:
                 if line.startswith('KEYWORDS:'):
                     keywords = line.replace('KEYWORDS:', '').strip().split(',')
-                elif line.startsWith('CONTENT:'):
+                    keywords = [k.strip() for k in keywords]
+                elif line.startswith('CONTENT:'):
                     is_content = True
                 elif is_content and line.strip():
                     content_lines.append(line)
@@ -51,6 +60,8 @@ try:
     print(f"✓ 문서 {len(documents)}개 로드 완료!")
 except Exception as e:
     print(f"✗ 문서 로드 실패: {e}")
+    import traceback
+    print(traceback.format_exc())
 
 def search_documents(query):
     query_lower = query.lower()
@@ -59,7 +70,7 @@ def search_documents(query):
     for doc in documents:
         score = 0
         for keyword in doc["keywords"]:
-            if keyword in query_lower:
+            if keyword.lower() in query_lower:
                 score += 2
         
         content_lower = doc["content"].lower()
@@ -108,34 +119,57 @@ def chat():
         })
         
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 @app.route('/predict', methods=['POST'])
 def predict():
     if model_package is None:
-        return jsonify({'error': '예측 모델을 사용할 수 없습니다. 모델 파일(franchise_model.pkl)이 필요합니다.'}), 400
+        return jsonify({'error': '예측 모델을 사용할 수 없습니다.'}), 400
     
     try:
         data = request.json
-        region = data.get('region')
-        industry = data.get('industry')
-        district = data.get('district')
+        sales_range = data.get('sales_range')
+        transaction_range = data.get('transaction_range')
+        customer_range = data.get('customer_range')
+        avg_price_range = data.get('avg_price_range')
         
-        if not all([region, industry, district]):
+        if not all([sales_range, transaction_range, customer_range, avg_price_range]):
             return jsonify({'error': '모든 필드를 입력해주세요'}), 400
         
-        encoders = model_package['label_encoders']
+        encoders = model_package.get('label_encoders', {})
+        model = model_package.get('model')
         
+        if not model:
+            return jsonify({'error': '모델을 찾을 수 없습니다'}), 500
+        
+        # 인코딩
         try:
-            import numpy as np
-            region_encoded = encoders['가맹점지역_encoded'].transform([region])[0]
-            industry_encoded = encoders['업종_encoded'].transform([industry])[0]
-            district_encoded = encoders['상권_encoded'].transform([district])[0]
-        except:
+            sales_encoded = encoders['매출금액구간'].transform([sales_range])[0]
+            transaction_encoded = encoders['매출건수구간'].transform([transaction_range])[0]
+            customer_encoded = encoders['유니크고객수구간'].transform([customer_range])[0]
+            price_encoded = encoders['객단가구간'].transform([avg_price_range])[0]
+        except KeyError as e:
+            return jsonify({'error': f'인코더를 찾을 수 없습니다: {e}'}), 500
+        except ValueError:
             return jsonify({'error': '입력값이 학습 데이터에 없습니다'}), 400
         
-        X = np.array([[region_encoded, industry_encoded, district_encoded]])
-        model = model_package['model']
+        # 예측 (XGBoost는 20개 특징 필요 - 나머지는 0으로 채움)
+        feature_cols = model_package.get('feature_cols', [])
+        X = np.zeros((1, len(feature_cols)))
+        
+        # 4개 인코딩된 값 넣기
+        for i, col in enumerate(feature_cols):
+            if col == '매출금액구간':
+                X[0, i] = sales_encoded
+            elif col == '매출건수구간':
+                X[0, i] = transaction_encoded
+            elif col == '유니크고객수구간':
+                X[0, i] = customer_encoded
+            elif col == '객단가구간':
+                X[0, i] = price_encoded
+        
         probability = model.predict_proba(X)[0][1]
         
         return jsonify({
@@ -144,6 +178,8 @@ def predict():
         })
         
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 @app.route('/options', methods=['GET'])
@@ -151,42 +187,26 @@ def get_options():
     if model_package is None:
         return jsonify({
             'error': '예측 기능을 사용할 수 없습니다',
-            'regions': [],
-            'industries': [],
-            'districts': []
+            'sales_ranges': [],
+            'transaction_ranges': [],
+            'customer_ranges': [],
+            'avg_price_ranges': []
         })
     
     try:
-        print("=== 모델 패키지 구조 ===")
-        print("Type:", type(model_package))
-        print("Keys:", list(model_package.keys()) if hasattr(model_package, 'keys') else "Not a dict")
+        encoders = model_package.get('label_encoders', {})
         
-        # label_encoders가 있는지 확인
-        if 'label_encoders' in model_package:
-            encoders = model_package['label_encoders']
-            print("Encoders type:", type(encoders))
-            print("Encoder keys:", list(encoders.keys()))
-            
-            return jsonify({
-                'regions': list(encoders['가맹점지역_encoded'].classes_),
-                'industries': list(encoders['업종_encoded'].classes_),
-                'districts': list(encoders['상권_encoded'].classes_)
-            })
-        else:
-            # label_encoders가 없으면 전체 키 구조 반환
-            return jsonify({
-                'error': 'label_encoders 키가 없음',
-                'available_keys': list(model_package.keys())
-            }), 500
+        return jsonify({
+            'sales_ranges': list(encoders['매출금액구간'].classes_),
+            'transaction_ranges': list(encoders['매출건수구간'].classes_),
+            'customer_ranges': list(encoders['유니크고객수구간'].classes_),
+            'avg_price_ranges': list(encoders['객단가구간'].classes_)
+        })
             
     except Exception as e:
         import traceback
-        print("=== 에러 발생 ===")
         print(traceback.format_exc())
-        return jsonify({
-            'error': str(e),
-            'type': type(e).__name__
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health():
