@@ -4,3 +4,4 @@ google-genai==1.41.0
 gunicorn==21.2.0
 numpy>=1.26.0
 scikit-learn>=1.4.0
+xgboost>=2.0.0
