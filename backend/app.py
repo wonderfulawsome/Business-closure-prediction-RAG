@@ -197,10 +197,10 @@ def get_options():
         encoders = model_package.get('label_encoders', {})
         
         return jsonify({
-            'sales_ranges': list(encoders['매출금액구간'].classes_),
-            'transaction_ranges': list(encoders['매출건수구간'].classes_),
-            'customer_ranges': list(encoders['유니크고객수구간'].classes_),
-            'avg_price_ranges': list(encoders['객단가구간'].classes_)
+            'sales_ranges': [str(x) for x in encoders['매출금액구간'].classes_],
+            'transaction_ranges': [str(x) for x in encoders['매출건수구간'].classes_],
+            'customer_ranges': [str(x) for x in encoders['유니크고객수구간'].classes_],
+            'avg_price_ranges': [str(x) for x in encoders['객단가구간'].classes_]
         })
             
     except Exception as e:
