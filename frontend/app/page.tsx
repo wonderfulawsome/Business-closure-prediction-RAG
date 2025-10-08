@@ -8,10 +8,42 @@ interface Message {
 }
 
 interface Options {
-  regions: string[];
-  industries: string[];
-  districts: string[];
+  [key: string]: string[];
 }
+
+// 모델이 사용하는 모든 변수들의 초기 상태를 정의합니다.
+const initialFormState = {
+  '가맹점운영개월수구간': '',
+  '매출금액구간': '',
+  '매출건수구간': '',
+  '유니크고객수구간': '',
+  '객단가구간': '',
+  '가맹점지역': '',
+  '업종': '',
+  '배달매출금액비율': 0,
+  '동일업종매출금액비율': 0,
+  '동일업종매출건수비율': 0,
+  '동일업종내매출순위비율': 0,
+  '동일상권내매출순위비율': 0,
+  '동일업종내해지가맹점비중': 0,
+  '동일상권내해지가맹점비중': 0,
+  '남성20대이하고객비중': 0,
+  '남성30대고객비중': 0,
+  '남성40대고객비중': 0,
+  '남성50대고객비중': 0,
+  '남성60대이상고객비중': 0,
+  '여성20대이하고객비중': 0,
+  '여성30대고객비중': 0,
+  '여성40대고객비중': 0,
+  '여성50대고객비중': 0,
+  '여성60대이상고객비중': 0,
+  '재방문고객비중': 0,
+  '신규고객비중': 0,
+  '거주이용고객비율': 0,
+  '직장이용고객비율': 0,
+  '유동인구이용고객비율': 0,
+};
+
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -21,9 +53,7 @@ export default function Home() {
   
   const [options, setOptions] = useState<Options | null>(null);
   const [optionsError, setOptionsError] = useState<string>('');
-  const [region, setRegion] = useState('');
-  const [industry, setIndustry] = useState('');
-  const [district, setDistrict] = useState('');
+  const [formData, setFormData] = useState(initialFormState);
   const [prediction, setPrediction] = useState<any>(null);
   const [predicting, setPredicting] = useState(false);
 
@@ -42,6 +72,11 @@ export default function Home() {
         setOptionsError('옵션을 불러올 수 없습니다');
       });
   }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -76,21 +111,25 @@ export default function Home() {
   };
 
   const handlePredict = async () => {
-    if (!region || !industry || !district) {
-      alert('모든 항목을 선택해주세요');
-      return;
+    // 모든 범주형 변수가 선택되었는지 확인
+    const categoricalFields = Object.keys(options || {});
+    for (const field of categoricalFields) {
+      if (!formData[field]) {
+        alert(`'${field}' 항목을 선택해주세요.`);
+        return;
+      }
     }
-
+  
     setPredicting(true);
     setPrediction(null);
-
+  
     try {
       const response = await fetch('https://business-closure-prediction-rag.onrender.com/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ region, industry, district })
+        body: JSON.stringify(formData)
       });
-
+  
       const data = await response.json();
       if (data.error) {
         alert(data.error);
@@ -104,80 +143,80 @@ export default function Home() {
     }
   };
 
+  // 모든 변수에 대한 입력 폼을 동적으로 생성하는 함수
+  const renderForm = () => {
+    if (optionsError) {
+      return <div className="text-red-600 text-sm">{optionsError}</div>;
+    }
+    if (!options) {
+      return <p className="text-gray-500">옵션 로딩 중...</p>;
+    }
+
+    const categoricalFeatures = Object.keys(options);
+    const numericalFeatures = Object.keys(initialFormState).filter(key => !categoricalFeatures.includes(key));
+
+    return (
+      <div className="space-y-4">
+        {/* 범주형 변수들은 드롭다운으로 표시 */}
+        {categoricalFeatures.map(key => (
+          <div key={key}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{key}</label>
+            <select
+              name={key}
+              value={formData[key]}
+              onChange={handleInputChange}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
+            >
+              <option value="">선택하세요</option>
+              {options[key]?.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+        {/* 수치형 변수들은 숫자 입력 필드로 표시 */}
+        {numericalFeatures.map(key => (
+          <div key={key}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{key}</label>
+            <input
+              type="number"
+              name={key}
+              value={formData[key]}
+              onChange={handleInputChange}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
+            />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-[#B2C7D9]">
       <div className={`${showSidebar ? 'w-80' : 'w-0'} transition-all duration-300 bg-white overflow-hidden`}>
         <div className="p-4 h-full overflow-y-auto">
           <h2 className="text-xl font-bold mb-4 text-gray-800">폐업 확률 예측</h2>
           
-          {optionsError ? (
-            <div className="text-red-600 text-sm">{optionsError}</div>
-          ) : options ? (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">가맹점 지역</label>
-                <select 
-                  value={region} 
-                  onChange={(e) => setRegion(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
-                >
-                  <option value="">선택하세요</option>
-                  {options.regions?.map(r => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </div>
+          {renderForm()}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">업종</label>
-                <select 
-                  value={industry} 
-                  onChange={(e) => setIndustry(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
-                >
-                  <option value="">선택하세요</option>
-                  {options.industries?.map(i => (
-                    <option key={i} value={i}>{i}</option>
-                  ))}
-                </select>
-              </div>
+          <button
+            onClick={handlePredict}
+            disabled={predicting}
+            className="w-full mt-4 bg-[#FEE500] text-gray-800 py-3 rounded-lg font-semibold hover:bg-[#FDD835] disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {predicting ? '예측 중...' : '폐업 확률 예측'}
+          </button>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">상권</label>
-                <select 
-                  value={district} 
-                  onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
-                >
-                  <option value="">선택하세요</option>
-                  {options.districts?.map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                onClick={handlePredict}
-                disabled={predicting}
-                className="w-full bg-[#FEE500] text-gray-800 py-3 rounded-lg font-semibold hover:bg-[#FDD835] disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                {predicting ? '예측 중...' : '폐업 확률 예측'}
-              </button>
-
-              {prediction && (
-                <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-                  <h3 className="font-bold text-gray-800 mb-2">예측 결과</h3>
-                  <p className="text-2xl font-bold text-red-600 mb-1">
-                    {prediction.closure_probability.toFixed(2)}%
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    위험도: <span className="font-semibold">{prediction.risk_level}</span>
-                  </p>
-                </div>
-              )}
+          {prediction && (
+            <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+              <h3 className="font-bold text-gray-800 mb-2">예측 결과</h3>
+              <p className="text-2xl font-bold text-red-600 mb-1">
+                {prediction.closure_probability.toFixed(2)}%
+              </p>
+              <p className="text-sm text-gray-600">
+                위험도: <span className="font-semibold">{prediction.risk_level}</span>
+              </p>
             </div>
-          ) : (
-            <p className="text-gray-500">옵션 로딩 중...</p>
           )}
         </div>
       </div>
