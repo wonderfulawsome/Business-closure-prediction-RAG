@@ -16,7 +16,7 @@ interface OptionsData {
   error?: string;
 }
 
-interface FormData {
+interface FormDataType {
   [key: string]: string | number;
 }
 
@@ -27,7 +27,7 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [optionsData, setOptionsData] = useState<OptionsData | null>(null);
-  const [formData, setFormData] = useState<FormData>({});
+  const [formData, setFormData] = useState<FormDataType>({});
   const [prediction, setPrediction] = useState<any>(null);
   const [isPredicting, setIsPredicting] = useState(false);
 
@@ -39,7 +39,7 @@ export default function Home() {
           console.error(data.error || '유효하지 않은 데이터');
         } else {
           setOptionsData(data);
-          const initialForm: FormData = {};
+          const initialForm: FormDataType = {};
           data.feature_cols.forEach(key => {
             initialForm[key] = data.options[key] ? '' : 0;
           });
@@ -92,7 +92,7 @@ export default function Home() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev: FormData) => ({
+    setFormData((prev: FormDataType) => ({
       ...prev,
       [name]: (e.target as HTMLInputElement).type === 'number' ? parseFloat(value) || 0 : value
     }));
@@ -130,7 +130,6 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* 사이드바 */}
       <div className="w-80 bg-slate-800/50 backdrop-blur-xl border-r border-purple-500/20 p-6 overflow-y-auto">
         <div className="flex items-center gap-3 mb-8">
           <TrendingDown className="w-8 h-8 text-purple-400" />
@@ -191,15 +190,11 @@ export default function Home() {
                     <div className="text-3xl font-bold text-white">
                       {prediction.closure_probability.toFixed(2)}%
                     </div>
-                    <div
-                      className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
-                        prediction.risk_level === '높음'
-                          ? 'bg-red-500/20 text-red-300'
-                          : prediction.risk_level === '중간'
-                          ? 'bg-yellow-500/20 text-yellow-300'
-                          : 'bg-green-500/20 text-green-300'
-                      }`}
-                    >
+                    <div className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                      prediction.risk_level === '높음' ? 'bg-red-500/20 text-red-300' :
+                      prediction.risk_level === '중간' ? 'bg-yellow-500/20 text-yellow-300' :
+                      'bg-green-500/20 text-green-300'
+                    }`}>
                       위험도: {prediction.risk_level}
                     </div>
                   </div>
@@ -210,7 +205,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* 채팅 영역 */}
       <div className="flex-1 flex flex-col">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.length === 0 && (
@@ -221,24 +215,16 @@ export default function Home() {
           )}
 
           {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex gap-3 ${
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
+            <div key={index} className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {message.role === 'assistant' && (
                 <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
                   <Bot className="w-5 h-5 text-white" />
                 </div>
               )}
-              <div
-                className={`max-w-2xl p-4 rounded-2xl ${
-                  message.role === 'user'
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                    : 'bg-slate-800/50 backdrop-blur-xl text-purple-100 border border-purple-500/20'
-                }`}
-              >
+              <div className={`max-w-2xl p-4 rounded-2xl ${
+                message.role === 'user' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' :
+                'bg-slate-800/50 backdrop-blur-xl text-purple-100 border border-purple-500/20'
+              }`}>
                 {message.content}
               </div>
               {message.role === 'user' && (
@@ -257,8 +243,8 @@ export default function Home() {
               <div className="bg-slate-800/50 backdrop-blur-xl p-4 rounded-2xl border border-purple-500/20">
                 <div className="flex gap-2">
                   <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-200" />
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}} />
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}} />
                 </div>
               </div>
             </div>
