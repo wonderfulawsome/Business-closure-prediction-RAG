@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Send, Bot, User, TrendingDown } from 'lucide-react';
 
-// --- 타입 정의 ---
+const API_URL = 'https://business-closure-prediction-rag.onrender.com';
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -14,58 +16,88 @@ interface OptionsData {
   error?: string;
 }
 
-// --- 컴포넌트 ---
+interface FormData {
+  [key: string]: string | number;
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
-  
-  const [optionsData, setOptionsData] = useState<OptionsData | null>(null);
-  const [optionsError, setOptionsError] = useState<string>('');
-  const [formData, setFormData] = useState<any>({});
-  const [prediction, setPrediction] = useState<any>(null);
-  const [predicting, setPredicting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 백엔드에서 옵션과 피처 순서 로드
+  const [optionsData, setOptionsData] = useState<OptionsData | null>(null);
+  const [formData, setFormData] = useState<FormData>({});
+  const [prediction, setPrediction] = useState<any>(null);
+  const [isPredicting, setIsPredicting] = useState(false);
+
   useEffect(() => {
-    fetch('https://business-closure-prediction-rag.onrender.com/options')
-      .then(res => {
-        if (!res.ok) throw new Error('서버 응답 오류 (상태 코드: ' + res.status + ')');
-        return res.json();
-      })
+    fetch(`${API_URL}/options`)
+      .then(res => res.json())
       .then((data: OptionsData) => {
         if (data.error || !data.options || !data.feature_cols) {
-          setOptionsError(data.error || '서버에서 유효한 데이터를 받지 못했습니다.');
+          console.error(data.error || '유효하지 않은 데이터');
         } else {
           setOptionsData(data);
-          // 피처 목록을 기반으로 폼 초기 상태 설정
-          const initialForm: any = {};
+          const initialForm: FormData = {};
           data.feature_cols.forEach(key => {
-            initialForm[key] = data.options[key] ? '' : 0; // 범주형은 빈 문자열, 수치형은 0으로 초기화
+            initialForm[key] = data.options[key] ? '' : 0;
           });
           setFormData(initialForm);
         }
       })
-      .catch(err => {
-        console.error('옵션 로드 실패:', err);
-        setOptionsError('옵션을 불러올 수 없습니다. 서버 상태 또는 주소를 확인해주세요.');
-      });
+      .catch(err => console.error('옵션 로드 실패:', err));
   }, []);
 
-  // 폼 입력 값 변경 핸들러
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const userMessage: Message = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: input }),
+      });
+
+      const data = await response.json();
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.response || data.error || '응답을 받을 수 없습니다.',
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: '죄송합니다. 오류가 발생했습니다.',
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev: FormData) => ({
       ...prev,
       [name]: (e.target as HTMLInputElement).type === 'number' ? parseFloat(value) || 0 : value
     }));
   };
-  
-  // 챗봇 메시지 전송 함수 (기능 유지)
-  const sendMessage = async () => { /* ... 이전과 동일 ... */ };
 
-  // 예측 실행 핸들러
   const handlePredict = async () => {
     if (!optionsData) return;
 
@@ -76,12 +108,12 @@ export default function Home() {
         return;
       }
     }
-  
-    setPredicting(true);
+
+    setIsPredicting(true);
     setPrediction(null);
-  
+
     try {
-      const response = await fetch('https://business-closure-prediction-rag.onrender.com/predict', {
+      const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -92,78 +124,168 @@ export default function Home() {
     } catch (error) {
       alert('예측 중 오류가 발생했습니다.');
     } finally {
-      setPredicting(false);
+      setIsPredicting(false);
     }
   };
 
-  // 동적 폼 렌더링 함수
-  const renderForm = () => {
-    if (optionsError) return <div className="text-red-500 text-sm p-2 bg-red-100 rounded">{optionsError}</div>;
-    if (!optionsData) return <p className="text-gray-500">예측 모델 로딩 중...</p>;
+  return (
+    <div className="flex h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* 사이드바 */}
+      <div className="w-80 bg-slate-800/50 backdrop-blur-xl border-r border-purple-500/20 p-6 overflow-y-auto">
+        <div className="flex items-center gap-3 mb-8">
+          <TrendingDown className="w-8 h-8 text-purple-400" />
+          <h1 className="text-2xl font-bold text-white">폐업 확률 예측</h1>
+        </div>
 
-    const { options, feature_cols } = optionsData;
+        {!optionsData ? (
+          <div className="text-white">로딩 중...</div>
+        ) : (
+          <div className="space-y-4">
+            {optionsData.feature_cols.map(key => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  {key}
+                </label>
+                {optionsData.options[key] ? (
+                  <select
+                    name={key}
+                    value={formData[key] || ''}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">선택하세요</option>
+                    {optionsData.options[key].map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    name={key}
+                    value={formData[key] || 0}
+                    onChange={handleInputChange}
+                    step="0.1"
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500"
+                  />
+                )}
+              </div>
+            ))}
 
-    return (
-      <div className="space-y-4">
-        {feature_cols.map(key => (
-          <div key={key}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{key}</label>
-            {options[key] ? ( // options에 키가 존재하면 범주형 변수
-              <select
-                name={key}
-                value={formData[key] || ''}
-                onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
-              >
-                <option value="">선택하세요</option>
-                {options[key].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-              </select>
-            ) : ( // 아니면 수치형 변수
-              <input
-                type="number"
-                name={key}
-                value={formData[key] || 0}
-                onChange={handleInputChange}
-                step="0.1"
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FEE500]"
-              />
+            <button
+              onClick={handlePredict}
+              disabled={isPredicting}
+              className="w-full mt-4 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg disabled:opacity-50"
+            >
+              {isPredicting ? '예측 중...' : '폐업 확률 예측'}
+            </button>
+
+            {prediction && (
+              <div className="mt-6 p-4 bg-slate-700/50 rounded-lg border border-purple-500/30">
+                {prediction.error ? (
+                  <p className="text-red-400">{prediction.error}</p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="text-purple-200 text-sm">예측 결과</div>
+                    <div className="text-3xl font-bold text-white">
+                      {prediction.closure_probability.toFixed(2)}%
+                    </div>
+                    <div
+                      className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                        prediction.risk_level === '높음'
+                          ? 'bg-red-500/20 text-red-300'
+                          : prediction.risk_level === '중간'
+                          ? 'bg-yellow-500/20 text-yellow-300'
+                          : 'bg-green-500/20 text-green-300'
+                      }`}
+                    >
+                      위험도: {prediction.risk_level}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-        ))}
+        )}
       </div>
-    );
-  };
-  
-  return (
-    <div className="flex h-screen bg-[#B2C7D9] font-sans">
-      {/* --- 사이드바 (예측 폼) --- */}
-      <div className={`transition-all duration-300 bg-white overflow-hidden ${showSidebar ? 'w-96' : 'w-0'}`}>
-        <div className="p-4 h-full overflow-y-auto">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">폐업 확률 예측</h2>
-          
-          {renderForm()}
 
-          <button
-            onClick={handlePredict}
-            disabled={predicting || !optionsData}
-            className="w-full mt-6 bg-[#FEE500] text-gray-800 py-3 rounded-lg font-semibold hover:bg-[#FDD835] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            {predicting ? '예측 중...' : '폐업 확률 예측'}
-          </button>
-          
-          {prediction && (
-            <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-              <h3 className="font-bold text-gray-800 mb-2">예측 결과</h3>
-              <p className="text-2xl font-bold text-red-600 mb-1">{prediction.closure_probability.toFixed(2)}%</p>
-              <p className="text-sm text-gray-600">위험도: <span className="font-semibold">{prediction.risk_level}</span></p>
+      {/* 채팅 영역 */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {messages.length === 0 && (
+            <div className="text-center text-purple-300 mt-20">
+              <Bot className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-xl">가맹점 폐업에 대해 무엇이든 물어보세요</p>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* --- 메인 채팅창 --- */}
-      <div className="flex-1 flex flex-col">
-          {/* ... (채팅창 UI는 변경 없음) ... */}
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              className={`flex gap-3 ${
+                message.role === 'user' ? 'justify-end' : 'justify-start'
+              }`}
+            >
+              {message.role === 'assistant' && (
+                <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                  <Bot className="w-5 h-5 text-white" />
+                </div>
+              )}
+              <div
+                className={`max-w-2xl p-4 rounded-2xl ${
+                  message.role === 'user'
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                    : 'bg-slate-800/50 backdrop-blur-xl text-purple-100 border border-purple-500/20'
+                }`}
+              >
+                {message.content}
+              </div>
+              {message.role === 'user' && (
+                <div className="w-8 h-8 rounded-full bg-pink-600 flex items-center justify-center flex-shrink-0">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+              )}
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+                <Bot className="w-5 h-5 text-white" />
+              </div>
+              <div className="bg-slate-800/50 backdrop-blur-xl p-4 rounded-2xl border border-purple-500/20">
+                <div className="flex gap-2">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-100" />
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-200" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 border-t border-purple-500/20">
+          <div className="flex gap-4">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="메시지를 입력하세요..."
+              className="flex-1 px-6 py-3 bg-slate-800/50 backdrop-blur-xl border border-purple-500/30 rounded-full text-white placeholder-purple-300/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-purple-500/50 disabled:opacity-50 flex items-center gap-2"
+            >
+              <Send className="w-5 h-5" />
+              전송
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
