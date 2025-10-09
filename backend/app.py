@@ -8,7 +8,7 @@ import traceback
 
 app = Flask(__name__)
 
-# CORS 설정 - 모든 origin 허용
+# CORS 설정
 CORS(app, resources={
     r"/*": {
         "origins": "*",
@@ -38,8 +38,12 @@ try:
         if 'model_info' in model_package:
             info = model_package['model_info']
             print(f"  - 모델명: {info.get('name', 'Unknown')}")
+            print(f"  - 버전: {info.get('version', 'Unknown')}")
+        if 'ordered_columns' in model_package:
+            print("  - ✓ ordered_columns 포함됨")
 except Exception as e:
     print(f"✗ 모델 로드 실패: {e}")
+    print(traceback.format_exc())
 
 # 문서 로드
 documents = []
@@ -99,7 +103,6 @@ def search_documents(query):
 
 @app.route('/options', methods=['GET', 'OPTIONS'])
 def get_options():
-    # OPTIONS 요청 처리
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -128,7 +131,6 @@ def get_options():
 
 @app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():
-    # OPTIONS 요청 처리
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -137,7 +139,8 @@ def predict():
 
     try:
         data = request.json
-        encoders = model_package['label_encoders']
+        encoders = model_package.get('label_encoders', {})
+        ordered_columns = model_package.get('ordered_columns', {})
         model = model_package['model']
         feature_cols = model_package['feature_cols']
         
@@ -150,7 +153,16 @@ def predict():
 
             if col in encoders:
                 try:
-                    X[0, i] = encoders[col].transform([str(value)])[0]
+                    # 순서가 있는 컬럼인 경우 수동 매핑 사용
+                    if col in ordered_columns:
+                        order = ordered_columns[col]
+                        mapping = {label: idx for idx, label in enumerate(order)}
+                        if str(value) not in mapping:
+                            return jsonify({'error': f"'{col}' 값 '{value}'가 유효하지 않습니다"}), 400
+                        X[0, i] = mapping[str(value)]
+                    else:
+                        # 일반 LabelEncoder 사용
+                        X[0, i] = encoders[col].transform([str(value)])[0]
                 except ValueError:
                     return jsonify({'error': f"'{col}' 값이 유효하지 않습니다"}), 400
             else:
@@ -173,7 +185,6 @@ def predict():
 
 @app.route('/chat', methods=['POST', 'OPTIONS'])
 def chat():
-    # OPTIONS 요청 처리
     if request.method == 'OPTIONS':
         return '', 204
     
