@@ -30,7 +30,7 @@ model_package = None
 
 # 모델 로드
 try:
-    with open('franchise_model.pkl', 'rb') as f:
+    with open('model.pkl', 'rb') as f:
         model_package = pickle.load(f)
     print("✓ 모델 로드 성공!")
     if isinstance(model_package, dict):
