@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, TrendingDown, MessageSquare, Home, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
+import { Send, Bot, User, TrendingDown, MessageSquare, Home as HomeIcon, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
 
 const API_URL = 'https://business-closure-prediction-rag.onrender.com';
 
@@ -123,7 +123,7 @@ export default function Home() {
   };
 
   const menuItems = [
-    { id: 'home' as ViewType, icon: Home, label: '홈', color: 'text-indigo-200' },
+    { id: 'home' as ViewType, icon: HomeIcon, label: '홈', color: 'text-indigo-200' },
     { id: 'chat' as ViewType, icon: MessageSquare, label: '챗봇', color: 'text-indigo-200' },
     { id: 'sales-prediction' as ViewType, icon: BarChart3, label: '매출 데이터 예측', color: 'text-indigo-200' },
   ];
