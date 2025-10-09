@@ -2,6 +2,7 @@ services:
   - type: web
     name: business-closure-prediction-rag
     env: python
+    rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
