@@ -8,7 +8,6 @@ import traceback
 
 app = Flask(__name__)
 
-# CORS 설정
 CORS(app, resources={
     r"/*": {
         "origins": "*",
@@ -27,10 +26,12 @@ except Exception as e:
     client = None
 
 model_package = None
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 모델 로드
 try:
-    with open('model.pkl', 'rb') as f:
+    model_path = os.path.join(BASE_DIR, 'model.pkl')
+    with open(model_path, 'rb') as f:
         model_package = pickle.load(f)
     print("✓ 모델 로드 성공!")
     if isinstance(model_package, dict):
@@ -39,8 +40,6 @@ try:
             info = model_package['model_info']
             print(f"  - 모델명: {info.get('name', 'Unknown')}")
             print(f"  - 버전: {info.get('version', 'Unknown')}")
-        if 'ordered_columns' in model_package:
-            print("  - ✓ ordered_columns 포함됨")
 except Exception as e:
     print(f"✗ 모델 로드 실패: {e}")
     print(traceback.format_exc())
@@ -48,7 +47,8 @@ except Exception as e:
 # 문서 로드
 documents = []
 try:
-    with open('documents.txt', 'r', encoding='utf-8') as f:
+    docs_path = os.path.join(BASE_DIR, 'documents.txt')
+    with open(docs_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
     doc_blocks = content.split('===DOCUMENT_START===')
@@ -140,7 +140,6 @@ def predict():
     try:
         data = request.json
         encoders = model_package.get('label_encoders', {})
-        ordered_columns = model_package.get('ordered_columns', {})
         model = model_package['model']
         feature_cols = model_package['feature_cols']
         
@@ -153,18 +152,9 @@ def predict():
 
             if col in encoders:
                 try:
-                    # 순서가 있는 컬럼인 경우 수동 매핑 사용
-                    if col in ordered_columns:
-                        order = ordered_columns[col]
-                        mapping = {label: idx for idx, label in enumerate(order)}
-                        if str(value) not in mapping:
-                            return jsonify({'error': f"'{col}' 값 '{value}'가 유효하지 않습니다"}), 400
-                        X[0, i] = mapping[str(value)]
-                    else:
-                        # 일반 LabelEncoder 사용
-                        X[0, i] = encoders[col].transform([str(value)])[0]
+                    X[0, i] = encoders[col].transform([str(value)])[0]
                 except ValueError:
-                    return jsonify({'error': f"'{col}' 값이 유효하지 않습니다"}), 400
+                    return jsonify({'error': f"'{col}' 값 '{value}'가 유효하지 않습니다"}), 400
             else:
                 try:
                     X[0, i] = float(value)
