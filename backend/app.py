@@ -8,14 +8,29 @@ import traceback
 
 app = Flask(__name__)
 
+# ✅ CORS 설정 강화
 CORS(app, resources={
     r"/*": {
-        "origins": "*",
+        "origins": [
+            "https://business-closure-prediction-rag.vercel.app",
+            "http://localhost:3000"
+        ],
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"],
-        "expose_headers": ["Content-Type"]
+        "allow_headers": ["Content-Type", "Authorization"],
+        "expose_headers": ["Content-Type"],
+        "supports_credentials": True,
+        "max_age": 3600
     }
 })
+
+# ✅ 모든 요청에 CORS 헤더 추가
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', 'https://business-closure-prediction-rag.vercel.app')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    response.headers.add('Access-Control-Max-Age', '3600')
+    return response
 
 # Gemini 클라이언트 초기화
 try:
@@ -104,14 +119,15 @@ def search_documents(query):
 @app.route('/options', methods=['GET', 'OPTIONS'])
 def get_options():
     if request.method == 'OPTIONS':
-        return '', 204
+        response = jsonify({'status': 'ok'})
+        return response, 204
     
     if not model_package or 'label_encoders' not in model_package:
         return jsonify({
             'error': '모델 파일을 로드할 수 없습니다',
             'options': {},
             'feature_cols': []
-        })
+        }), 500
     
     try:
         encoders = model_package['label_encoders']
@@ -132,7 +148,8 @@ def get_options():
 @app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():
     if request.method == 'OPTIONS':
-        return '', 204
+        response = jsonify({'status': 'ok'})
+        return response, 204
     
     if not model_package:
         return jsonify({'error': '모델을 사용할 수 없습니다'}), 500
@@ -176,7 +193,8 @@ def predict():
 @app.route('/chat', methods=['POST', 'OPTIONS'])
 def chat():
     if request.method == 'OPTIONS':
-        return '', 204
+        response = jsonify({'status': 'ok'})
+        return response, 204
     
     if not client:
         return jsonify({'error': '챗봇 기능을 사용할 수 없습니다'}), 503
@@ -214,8 +232,12 @@ def chat():
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
-@app.route('/health', methods=['GET'])
+@app.route('/health', methods=['GET', 'OPTIONS'])
 def health():
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        return response, 204
+        
     return jsonify({
         'status': 'ok',
         'model_loaded': model_package is not None,
