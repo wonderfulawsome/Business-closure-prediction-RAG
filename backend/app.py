@@ -8,11 +8,12 @@ import traceback
 
 app = Flask(__name__)
 
-# ✅ CORS 설정 강화
+# ✅ CORS 설정 수정 - 모든 Vercel 도메인 허용
 CORS(app, resources={
     r"/*": {
         "origins": [
             "https://business-closure-prediction-rag.vercel.app",
+            "https://*.vercel.app",  # 모든 Vercel 프리뷰 URL 허용
             "http://localhost:3000"
         ],
         "methods": ["GET", "POST", "OPTIONS"],
@@ -26,7 +27,9 @@ CORS(app, resources={
 # ✅ 모든 요청에 CORS 헤더 추가
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'https://business-closure-prediction-rag.vercel.app')
+    origin = request.headers.get('Origin')
+    if origin:
+        response.headers.add('Access-Control-Allow-Origin', origin)
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
     response.headers.add('Access-Control-Max-Age', '3600')
