@@ -3,16 +3,32 @@
 import { useState, useEffect } from 'react';
 import { MessageCircle, TrendingDown, Menu, X, Send } from 'lucide-react';
 
+interface Message {
+  role: string;
+  content: string;
+}
+
+interface OptionsData {
+  options: Record<string, string[]>;
+  feature_cols: string[];
+}
+
+interface PredictionResult {
+  closure_probability: number;
+  risk_level: string;
+  error?: string;
+}
+
 export default function Home() {
-  const [currentView, setCurrentView] = useState('chat');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [optionsData, setOptionsData] = useState<any>(null);
-  const [formData, setFormData] = useState<any>({});
-  const [prediction, setPrediction] = useState<any>(null);
-  const [isPredicting, setIsPredicting] = useState(false);
+  const [currentView, setCurrentView] = useState<string>('chat');
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputMessage, setInputMessage] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [optionsData, setOptionsData] = useState<OptionsData | null>(null);
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+  const [isPredicting, setIsPredicting] = useState<boolean>(false);
 
   useEffect(() => {
     fetchOptions();
@@ -31,7 +47,7 @@ export default function Home() {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage = { role: 'user', content: inputMessage };
+    const userMessage: Message = { role: 'user', content: inputMessage };
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
@@ -68,7 +84,7 @@ export default function Home() {
       const data = await response.json();
       setPrediction(data);
     } catch (error) {
-      setPrediction({ error: '예측 중 오류가 발생했습니다.' });
+      setPrediction({ closure_probability: 0, risk_level: '', error: '예측 중 오류가 발생했습니다.' });
     } finally {
       setIsPredicting(false);
     }
@@ -76,7 +92,6 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* 사이드바 */}
       <aside className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed md:static w-64 h-full bg-gradient-to-b from-[#5B6EAF] to-[#7C88E5] text-white transition-transform duration-300 ease-in-out z-30 shadow-2xl`}>
         <div className="p-6">
           <div className="flex items-center justify-between mb-8">
@@ -98,12 +113,8 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* 오버레이 */}
-      {isSidebarOpen && (
-        <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 z-20 md:hidden" />
-      )}
+      {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 z-20 md:hidden" />}
 
-      {/* 메인 컨텐츠 */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center shadow-sm">
           <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mr-4 text-gray-600 hover:text-gray-800 transition-colors">
@@ -114,7 +125,6 @@ export default function Home() {
           </h2>
         </header>
 
-        {/* 챗봇 화면 */}
         {currentView === 'chat' && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -149,7 +159,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* 예측 모델 화면 */}
         {currentView === 'sales-prediction' && (
           <div className="flex-1 overflow-y-auto p-8 bg-white">
             <div className="max-w-4xl mx-auto">
