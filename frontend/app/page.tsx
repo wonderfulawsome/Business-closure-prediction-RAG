@@ -1,36 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { MessageCircle, TrendingDown, Menu, X, Send } from 'lucide-react';
-
-interface Message {
-  role: string;
-  content: string;
-}
-
-interface OptionsData {
-  options: Record<string, string[]>;
-  feature_cols: string[];
-}
-
-interface PredictionResult {
-  closure_probability: number;
-  risk_level: string;
-  error?: string;
-}
-
 export default function Home() {
-  const [currentView, setCurrentView] = useState<string>('chat');
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputMessage, setInputMessage] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [optionsData, setOptionsData] = useState<OptionsData | null>(null);
-  const [formData, setFormData] = useState<Record<string, string>>({});
-  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
-  const [isPredicting, setIsPredicting] = useState<boolean>(false);
+  const [currentView, setCurrentView] = React.useState('home');
+  const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const [messages, setMessages] = React.useState([]);
+  const [inputMessage, setInputMessage] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [optionsData, setOptionsData] = React.useState(null);
+  const [formData, setFormData] = React.useState({});
+  const [prediction, setPrediction] = React.useState(null);
+  const [isPredicting, setIsPredicting] = React.useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchOptions();
   }, []);
 
@@ -47,7 +28,7 @@ export default function Home() {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage: Message = { role: 'user', content: inputMessage };
+    const userMessage = { role: 'user', content: inputMessage };
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
@@ -67,7 +48,7 @@ export default function Home() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -95,18 +76,28 @@ export default function Home() {
       <aside className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed md:static w-64 h-full bg-gradient-to-b from-[#5B6EAF] to-[#7C88E5] text-white transition-transform duration-300 ease-in-out z-30 shadow-2xl`}>
         <div className="p-6">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-2xl font-bold">예측 시스템</h1>
+            <button onClick={() => { setCurrentView('home'); setIsSidebarOpen(false); }} className="text-2xl font-bold hover:opacity-80 transition-opacity">
+              예측 시스템
+            </button>
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
-              <X size={24} />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
             </button>
           </div>
           <nav className="space-y-3">
             <button onClick={() => { setCurrentView('chat'); setIsSidebarOpen(false); }} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${currentView === 'chat' ? 'bg-white/20 shadow-lg' : 'hover:bg-white/10'}`}>
-              <MessageCircle size={20} />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
               <span className="font-medium">챗봇</span>
             </button>
             <button onClick={() => { setCurrentView('sales-prediction'); setIsSidebarOpen(false); }} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${currentView === 'sales-prediction' ? 'bg-white/20 shadow-lg' : 'hover:bg-white/10'}`}>
-              <TrendingDown size={20} />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
+              </svg>
               <span className="font-medium">폐업 예측</span>
             </button>
           </nav>
@@ -118,12 +109,66 @@ export default function Home() {
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center shadow-sm">
           <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mr-4 text-gray-600 hover:text-gray-800 transition-colors">
-            <Menu size={24} />
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
           </button>
           <h2 className="text-xl font-semibold text-gray-800">
-            {currentView === 'chat' ? 'AI 챗봇' : '가맹점 폐업 예측'}
+            {currentView === 'home' ? '홈' : currentView === 'chat' ? 'AI 챗봇' : '가맹점 폐업 예측'}
           </h2>
         </header>
+
+        {currentView === 'home' && (
+          <div className="flex-1 flex items-center justify-center p-8 bg-white">
+            <div className="max-w-4xl w-full">
+              <div className="text-center mb-12">
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">가맹점 폐업 예측 시스템</h1>
+                <p className="text-lg text-gray-600">AI 기반 분석으로 가맹점 운영을 지원합니다</p>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-8">
+                <button 
+                  onClick={() => setCurrentView('chat')}
+                  className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-[#7C88E5]"
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-20 h-20 bg-gradient-to-br from-[#5B6EAF] to-[#7C88E5] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-3">AI 챗봇</h3>
+                    <p className="text-gray-600 leading-relaxed">
+                      폐업 위험 요인, 업종별 통계, 지역별 데이터 등<br />
+                      궁금한 점을 자유롭게 질문하세요
+                    </p>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => setCurrentView('sales-prediction')}
+                  className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-[#7C88E5]"
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-20 h-20 bg-gradient-to-br from-[#5B6EAF] to-[#7C88E5] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                        <polyline points="17 6 23 6 23 12"></polyline>
+                      </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-3">폐업 예측</h3>
+                    <p className="text-gray-600 leading-relaxed">
+                      가맹점 정보를 입력하면<br />
+                      AI가 폐업 확률을 분석해드립니다
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {currentView === 'chat' && (
           <div className="flex-1 flex flex-col overflow-hidden">
@@ -151,7 +196,10 @@ export default function Home() {
               <div className="flex space-x-3">
                 <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} placeholder="메시지를 입력하세요..." className="flex-1 px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-800 placeholder-gray-500 focus:ring-2 focus:ring-[#5B6EAF] focus:border-transparent outline-none transition-all" />
                 <button onClick={handleSendMessage} disabled={isLoading || !inputMessage.trim()} className="px-6 py-3 bg-[#7C88E5] text-white rounded-xl hover:bg-[#6B78D4] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center space-x-2">
-                  <Send size={20} />
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
                   <span className="font-medium">전송</span>
                 </button>
               </div>
@@ -175,13 +223,13 @@ export default function Home() {
               ) : (
                 <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
                   <div className="space-y-6 mb-8">
-                    {optionsData.feature_cols.map((key: string) => (
+                    {optionsData.feature_cols.map((key) => (
                       <div key={key}>
                         <label className="block text-sm font-medium text-gray-700 mb-2">{key}</label>
                         {optionsData.options[key] ? (
                           <select name={key} value={formData[key] || ''} onChange={handleInputChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-[#5B6EAF] focus:border-transparent outline-none">
                             <option value="">선택하세요</option>
-                            {optionsData.options[key].map((opt: string) => (
+                            {optionsData.options[key].map((opt) => (
                               <option key={opt} value={opt}>{opt}</option>
                             ))}
                           </select>
