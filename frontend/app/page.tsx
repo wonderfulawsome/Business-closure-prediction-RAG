@@ -5,12 +5,12 @@ import React from 'react';
 export default function Home() {
   const [currentView, setCurrentView] = React.useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
-  const [messages, setMessages] = React.useState([]);
+  const [messages, setMessages] = React.useState<Array<{role: string; content: string}>>([]);
   const [inputMessage, setInputMessage] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [optionsData, setOptionsData] = React.useState(null);
-  const [formData, setFormData] = React.useState({});
-  const [prediction, setPrediction] = React.useState(null);
+  const [optionsData, setOptionsData] = React.useState<any>(null);
+  const [formData, setFormData] = React.useState<any>({});
+  const [prediction, setPrediction] = React.useState<any>(null);
   const [isPredicting, setIsPredicting] = React.useState(false);
 
   React.useEffect(() => {
