@@ -1,5 +1,3 @@
-'use client';
-
 export default function Home() {
   const [currentView, setCurrentView] = React.useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
