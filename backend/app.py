@@ -8,12 +8,12 @@ import traceback
 
 app = Flask(__name__)
 
-# ✅ CORS 설정 수정 - 모든 Vercel 도메인 허용
+# ✅ CORS 설정
 CORS(app, resources={
     r"/*": {
         "origins": [
             "https://business-closure-prediction-rag.vercel.app",
-            "https://*.vercel.app",  # 모든 Vercel 프리뷰 URL 허용
+            "https://*.vercel.app",
             "http://localhost:3000"
         ],
         "methods": ["GET", "POST", "OPTIONS"],
@@ -24,7 +24,6 @@ CORS(app, resources={
     }
 })
 
-# ✅ 모든 요청에 CORS 헤더 추가
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
@@ -62,62 +61,17 @@ except Exception as e:
     print(f"✗ 모델 로드 실패: {e}")
     print(traceback.format_exc())
 
-# 문서 로드
-documents = []
+# 문서 로드 (전체 문서를 하나로)
+full_document = ""
 try:
     docs_path = os.path.join(BASE_DIR, 'documents.txt')
     with open(docs_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+        full_document = f.read()
     
-    doc_blocks = content.split('===DOCUMENT_START===')
-    for block in doc_blocks:
-        if '===DOCUMENT_END===' in block:
-            block = block.split('===DOCUMENT_END===')[0]
-            lines = block.strip().split('\n')
-            
-            keywords = []
-            content_lines = []
-            is_content = False
-            
-            for line in lines:
-                if line.startswith('KEYWORDS:'):
-                    keywords = line.replace('KEYWORDS:', '').strip().split(',')
-                    keywords = [k.strip() for k in keywords]
-                elif line.startswith('CONTENT:'):
-                    is_content = True
-                elif is_content and line.strip():
-                    content_lines.append(line)
-            
-            if content_lines:
-                documents.append({
-                    'content': '\n'.join(content_lines),
-                    'keywords': keywords
-                })
+    print(f"✓ 문서 로드 완료! (길이: {len(full_document)} 글자)")
     
-    print(f"✓ 문서 {len(documents)}개 로드 완료!")
 except Exception as e:
     print(f"✗ 문서 로드 실패: {e}")
-
-def search_documents(query):
-    query_lower = query.lower()
-    scores = []
-    
-    for doc in documents:
-        score = 0
-        for keyword in doc["keywords"]:
-            if keyword.lower() in query_lower:
-                score += 2
-        
-        content_lower = doc["content"].lower()
-        query_words = query_lower.split()
-        for word in query_words:
-            if len(word) > 1 and word in content_lower:
-                score += 1
-        
-        scores.append((doc, score))
-    
-    scores.sort(key=lambda x: x[1], reverse=True)
-    return [doc for doc, score in scores[:3] if score > 0]
 
 @app.route('/options', methods=['GET', 'OPTIONS'])
 def get_options():
@@ -206,23 +160,21 @@ def chat():
         data = request.json
         query = data.get('message', '')
         
-        relevant_docs = search_documents(query)
-        if not relevant_docs:
-            relevant_docs = documents[:3] if documents else []
-        
-        context = "\n\n".join([doc["content"] for doc in relevant_docs])
-        
-        prompt = f"""다음 문서를 참고하여 질문에 답변해주세요.
+        # 전체 문서를 컨텍스트로 사용
+        prompt = f"""다음은 소상공인 폐업 위기 예측에 관한 전문 지식 자료입니다. 이 문서의 내용을 바탕으로 질문에 답변해주세요.
 
-문서:
-{context}
+=== 참고 문서 ===
+{full_document}
 
-질문: {query}
+=== 사용자 질문 ===
+{query}
 
-답변 형식:
-- 명확하고 구체적으로 답변
-- 수치가 있으면 정확히 제시
-- 문서에 없는 내용은 추측하지 않음"""
+=== 답변 지침 ===
+- 위 문서의 내용을 근거로 명확하고 구체적으로 답변하세요
+- 수치나 데이터가 있으면 정확히 인용하세요
+- 문서에 없는 내용은 추측하지 마세요
+- 실용적이고 구체적인 조언을 제공하세요
+- 친절하고 이해하기 쉽게 설명하세요"""
         
         response = client.models.generate_content(
             model='gemini-2.0-flash-exp',
@@ -244,7 +196,7 @@ def health():
     return jsonify({
         'status': 'ok',
         'model_loaded': model_package is not None,
-        'documents_loaded': len(documents) > 0,
+        'document_loaded': len(full_document) > 0,
         'gemini_client_initialized': client is not None
     })
 
