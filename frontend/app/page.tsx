@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MessageCircle, TrendingDown, Menu, X, Send, ArrowRight } from 'lucide-react';
+import { MessageCircle, TrendingDown, Menu, X, Send } from 'lucide-react';
 
 interface Message {
   role: string;
@@ -20,7 +20,7 @@ interface PredictionResult {
 }
 
 export default function Home() {
-  const [currentView, setCurrentView] = useState<string>('home');
+  const [currentView, setCurrentView] = useState<string>('chat');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
@@ -31,10 +31,8 @@ export default function Home() {
   const [isPredicting, setIsPredicting] = useState<boolean>(false);
 
   useEffect(() => {
-    if (currentView === 'sales-prediction') {
-      fetchOptions();
-    }
-  }, [currentView]);
+    fetchOptions();
+  }, []);
 
   const fetchOptions = async () => {
     try {
@@ -92,81 +90,12 @@ export default function Home() {
     }
   };
 
-  // 홈 화면
-  if (currentView === 'home') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-6">
-        <div className="max-w-4xl w-full">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold text-gray-800 mb-4">
-              가맹점 폐업 위기 예측 시스템
-            </h1>
-            <p className="text-xl text-gray-600">
-              AI 기반 폐업 위험도 분석 및 상담 서비스
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* 챗봇 카드 */}
-            <button
-              onClick={() => setCurrentView('chat')}
-              className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-indigo-500"
-            >
-              <div className="flex flex-col items-center text-center space-y-4">
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <MessageCircle size={40} className="text-white" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-800">AI 챗봇</h2>
-                <p className="text-gray-600">
-                  폐업 위기 관련 질문에 대해 AI가 실시간으로 답변해드립니다
-                </p>
-                <div className="flex items-center text-indigo-600 font-semibold group-hover:gap-3 transition-all">
-                  <span>시작하기</span>
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </button>
-
-            {/* 폐업 예측 카드 */}
-            <button
-              onClick={() => setCurrentView('sales-prediction')}
-              className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-pink-500"
-            >
-              <div className="flex flex-col items-center text-center space-y-4">
-                <div className="w-20 h-20 bg-gradient-to-br from-pink-500 to-red-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <TrendingDown size={40} className="text-white" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-800">폐업 확률 예측</h2>
-                <p className="text-gray-600">
-                  가맹점 정보를 입력하여 폐업 위험도를 분석합니다
-                </p>
-                <div className="flex items-center text-pink-600 font-semibold group-hover:gap-3 transition-all">
-                  <span>시작하기</span>
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </button>
-          </div>
-
-          <div className="mt-12 text-center text-gray-500 text-sm">
-            <p>© 2025 가맹점 폐업 위기 예측 시스템. All rights reserved.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-screen bg-gray-50">
       <aside className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed md:static w-64 h-full bg-gradient-to-b from-[#5B6EAF] to-[#7C88E5] text-white transition-transform duration-300 ease-in-out z-30 shadow-2xl`}>
         <div className="p-6">
           <div className="flex items-center justify-between mb-8">
-            <button 
-              onClick={() => setCurrentView('home')}
-              className="text-2xl font-bold hover:opacity-80 transition-opacity"
-            >
-              예측 시스템
-            </button>
+            <h1 className="text-2xl font-bold">예측 시스템</h1>
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
               <X size={24} />
             </button>
