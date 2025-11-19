@@ -30,19 +30,6 @@ export default function Home() {
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [isPredicting, setIsPredicting] = useState<boolean>(false);
 
-  // 서버 Keep-Alive
-  useEffect(() => {
-    const keepAlive = setInterval(async () => {
-      try {
-        await fetch('https://business-closure-prediction-rag.onrender.com/health');
-      } catch (error) {
-        console.error('Ping failed:', error);
-      }
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(keepAlive);
-  }, []);
-
   useEffect(() => {
     if (currentView === 'sales-prediction') {
       fetchOptions();
@@ -105,6 +92,7 @@ export default function Home() {
     }
   };
 
+  // 홈 화면
   if (currentView === 'home') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-6">
@@ -119,6 +107,7 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
+            {/* 챗봇 카드 */}
             <button
               onClick={() => setCurrentView('chat')}
               className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-indigo-500"
@@ -138,6 +127,7 @@ export default function Home() {
               </div>
             </button>
 
+            {/* 폐업 예측 카드 */}
             <button
               onClick={() => setCurrentView('sales-prediction')}
               className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-pink-500"
