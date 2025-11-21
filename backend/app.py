@@ -178,7 +178,7 @@ def chat():
 - **나 ### 같은 기호들을 사용해서 글의 제목, 목록, 강조(굵게), 인용 등의 서식을 지정하는 언어인 **마크업 언어(Markup Language)는 사용하지마세요."""
         
         response = client.models.generate_content(
-            model='gemini-1.5-flash-exp',
+            model='gemini-1.5-flash',
             contents=prompt
         )
         
