@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from google import genai
+from google.genai import errors  # 에러 처리를 위해 추가
 import os
 import pickle
 import numpy as np
 import traceback
+import time  # 대기 시간(sleep)을 위해 추가
 
 app = Flask(__name__)
 
@@ -72,6 +74,28 @@ try:
     
 except Exception as e:
     print(f"✗ 문서 로드 실패: {e}")
+
+# 재시도 로직 함수 추가
+def generate_with_retry(model_id, contents, max_retries=3):
+    """429 에러 발생 시 30초 대기 후 재시도하는 래퍼 함수"""
+    retries = 0
+    while retries < max_retries:
+        try:
+            return client.models.generate_content(
+                model=model_id,
+                contents=contents
+            )
+        except errors.ClientError as e:
+            # 429: Resource Exhausted (쿼터 초과)
+            if e.code == 429:
+                print(f"⚠ 쿼터 초과. 30초 대기 후 재시도 중... ({retries + 1}/{max_retries})")
+                time.sleep(30)
+                retries += 1
+            else:
+                # 그 외 에러는 즉시 raise
+                raise e
+    
+    raise Exception("재시도 횟수 초과: 잠시 후 다시 시도해주세요.")
 
 @app.route('/options', methods=['GET', 'OPTIONS'])
 def get_options():
@@ -177,8 +201,9 @@ def chat():
 - 친절하고 이해하기 쉽게 설명하세요
 - **나 ### 같은 기호들을 사용해서 글의 제목, 목록, 강조(굵게), 인용 등의 서식을 지정하는 언어인 **마크업 언어(Markup Language)는 사용하지마세요."""
         
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
+        # [수정됨] 재시도 로직이 적용된 함수 호출 & 모델명 gemini-1.5-flash로 변경
+        response = generate_with_retry(
+            model_id='gemini-1.5-flash',
             contents=prompt
         )
         
