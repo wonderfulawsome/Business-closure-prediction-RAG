@@ -77,10 +77,16 @@ except Exception as e:
 
 # 재시도 로직 함수 추가
 def generate_with_retry(model_id, contents, max_retries=3):
-    """429 에러 발생 시 30초 대기 후 재시도하는 래퍼 함수"""
+    """
+    429 에러 발생 시 점진적으로 대기 시간을 늘리며 재시도하는 함수
+    (기존 30초 고정 대기 -> 2초, 4초, 8초로 단축)
+    """
     retries = 0
+    base_delay = 2  # 초기 대기 시간 2초
+    
     while retries < max_retries:
         try:
+            print(f"[{retries+1}/{max_retries}] 모델 호출 시도: {model_id}") # 로그 추가
             return client.models.generate_content(
                 model=model_id,
                 contents=contents
@@ -88,14 +94,17 @@ def generate_with_retry(model_id, contents, max_retries=3):
         except errors.ClientError as e:
             # 429: Resource Exhausted (쿼터 초과)
             if e.code == 429:
-                print(f"⚠ 쿼터 초과. 30초 대기 후 재시도 중... ({retries + 1}/{max_retries})")
-                time.sleep(30)
+                wait_time = base_delay * (2 ** retries) # 2초 -> 4초 -> 8초
+                print(f"⚠ 쿼터 초과(429). {wait_time}초 대기 후 재시도... ({retries + 1}/{max_retries})")
+                time.sleep(wait_time)
                 retries += 1
             else:
-                # 그 외 에러는 즉시 raise
+                # 그 외 에러는 즉시 에러 로그 출력 후 raise
+                print(f"✗ API 호출 중 치명적 에러: {e}")
                 raise e
     
-    raise Exception("재시도 횟수 초과: 잠시 후 다시 시도해주세요.")
+    # 3번 다 실패했을 경우
+    raise Exception("사용량이 많아 응답이 지연되고 있습니다. 잠시 후 다시 질문해주세요.")
 
 @app.route('/options', methods=['GET', 'OPTIONS'])
 def get_options():
