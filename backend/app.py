@@ -210,9 +210,9 @@ def chat():
 - 친절하고 이해하기 쉽게 설명하세요
 - **나 ### 같은 기호들을 사용해서 글의 제목, 목록, 강조(굵게), 인용 등의 서식을 지정하는 언어인 **마크업 언어(Markup Language)는 사용하지마세요."""
         
-        # [수정됨] 재시도 로직이 적용된 함수 호출 & 모델명 gemini-1.5-flash로 변경
+        # [수정됨] 재시도 로직이 적용된 함수 호출 & 모델명 gemini-2.5-flash로 변경
         response = generate_with_retry(
-            model_id='gemini-1.5-flash',
+            model_id='gemini-2.5-flash',
             contents=prompt
         )
         
