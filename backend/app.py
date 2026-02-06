@@ -212,7 +212,7 @@ def chat():
         
         # [수정됨] 재시도 로직이 적용된 함수 호출 & 모델명 gemini-1.5-flash로 변경
         response = generate_with_retry(
-            model_id='gemini-2.0-flash',
+            model_id='gemini-1.5-flash',
             contents=prompt
         )
         
